@@ -1,0 +1,222 @@
+<template>
+  <div>
+    <div>
+      <div class="row cxs12">
+        <div class="row cxs12">
+          <div class="cb cxs1">
+            <input id="cb1" name="cb1" type="checkbox" v-model="ec2Check" @click="checkedFun()"/>
+            <label for="cb1" class="cb-texts">EC2 </label>
+          </div>
+          <div class="cb cxs1">
+            <input id="cb2" name="cb2" type="checkbox" v-model="rdsCheck" @click="checkedFun()"/>
+            <label for="cb2" class="cb-texts">RDS</label>
+          </div>
+          <div class="cb cxs1">
+            <input id="cb3" name="cb3" type="checkbox" v-model="s3Check" @click="checkedFun()"/>
+            <label for="cb3" class="cb-texts">S3</label>
+          </div>
+          <div class="cb cxs2">
+            <input id="cb4" name="cb6" type="checkbox" v-model="cloudWatchCheck" @click="checkedFun()"/>
+            <label for="cb4" class="cb-texts">Cloudwatch</label>
+          </div>
+          <div class="cb cxs2">
+            <input id="cb5" name="cb6" type="checkbox" v-model="lambdaCheck" @click="checkedFun()"/>
+            <label for="cb5" class="cb-texts">Lambda</label>
+          </div>
+          <div class="cxs5" inline>
+            <div class="wrap">
+              <div class="search">
+                  <input type="text" v-model="searchText" class="searchTerm" placeholder="What are you looking for?">
+                  <button type="submit" class="searchButton" @click="searchFun()">
+                    <i class="fas fa-search"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <br><br>
+    <div>
+      <div class="row tree">
+        <table border="1" class="styled-table">
+          <thead style="background-color:hsl(192deg 71% 92%);">
+            <tr>
+              <!-- <th class="default">#</th> -->
+              <th style="padding-left: 40px" class="default">IntegrationID</th>
+              <th class="default" style="padding: 30px">ResourceID</th>
+              <th class="default" style="padding: 30px;width: 16.66%!important">FirstSeen</th>
+              <th class="default" style="padding: 30px">LastSeen</th>
+              <th class="default" style="padding: 30px">Metadata</th>
+              <th class="default" style="padding: 30px">Region</th>
+              <th class="default" style="padding: 30px">ServiceType</th>
+              <th class="default" style="padding: 30px">Tags</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(user, index) in inventoryData " v-bind:key="user.email">
+              <!-- <td>
+                <div class="cb cxs1">
+                  <input id="user.email" :name="'checkbox'+ index" type="checkbox"  v-bind:key="user.email"/>
+                  <label for="user.email" class="cb-texts"></label>
+                  </div>
+              </td> -->
+              <td style="padding-left: 20px">
+                <!-- <td style="padding-left: 20px" v-if="!user.role.includes('owner')">-->
+                <!--class="button danger link" -->
+                <!--<i
+                class="fas fa-trash-alt small"
+                style="cursor: pointer;"
+                @click="showRemoveUser(user)"
+                :disabled="disabledAccess"
+                />&nbsp; &nbsp;-->
+                {{ user.email }}
+                <modal style="width: 100%" v-model="showRemoveModal">
+                  <h2>Remove User</h2>
+                  <p>Would you like to remove the user?</p>
+                  <br />
+                  <div class="right">
+                    <button
+                      class="button default medium outline"
+                      @click="removeUser()"
+                      type="submit"
+                    >
+                      <i class="fas fa-trash"></i>
+                      Remove
+                    </button>
+                  </div>
+                </modal>
+              </td>
+              <!--<td style="padding-left: 40px;" v-if="user.role.includes('owner')">-->
+              <td style="padding-left: 40px;">{{ user.user_id }}</td>
+              <td style="padding-left: 40px; width: 80.66% !important;">{{ user.id }}</td>
+              <td style="padding: 15px; width: 80.66% !important;">{{ user.created | dateTime }}</td>
+              <td style="padding: 15px">{{ user.created | dateTime }}</td>
+              <td style="padding-left: 15px;">{{ user.region }}</td>
+              <td style="padding: 15px">{{ user.ServiceType }}</td>
+              <td style="padding: 15px">{{ user.created | dateTime }}</td>
+              <!-- <td v-if="user.active" style="padding: 15px">
+              {{ user.last_login | dateTime }}
+            </td>
+            <td v-else style="padding: 15px">
+              -
+              </td>-->
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script lang="ts">
+import { Vue, Watch, Component } from 'vue-property-decorator';
+import API from '@/API';
+import _ from 'lodash';
+import './inventery.css';
+
+@Component
+export default class InventoryTable extends Vue {
+  private inventoryData: any = [];
+  private tempData: any = [];
+  private assignData: any = [];
+  private searchData: any = [];
+  private ec2Check: boolean = false;
+  private rdsCheck: boolean = false;
+  private s3Check: boolean = false;
+  private cloudWatchCheck: boolean = false;
+  private lambdaCheck: boolean = false;
+  private showRemoveModal: boolean = false;
+  private searchText: string = '';
+
+  private created(): void {
+    this.getInventoryDetails();
+  }
+
+  private checkedFun(): void {
+    const ec2Check = document.getElementById('cb1') as HTMLInputElement;
+    const rdsCheck = document.getElementById('cb2')  as HTMLInputElement;
+    const s3Check = document.getElementById('cb3') as HTMLInputElement;
+    const cloudWatchCheck = document.getElementById('cb4') as HTMLInputElement;
+    const lambdaCheck = document.getElementById('cb5') as HTMLInputElement;
+    this.assignData = [];
+    if (ec2Check?.checked) { this.filterData('ec2_intences'); }
+    if (rdsCheck?.checked) { this.filterData('rds'); }
+    if (s3Check?.checked) { this.filterData('s3'); }
+    if (cloudWatchCheck?.checked) { this.filterData('cloudWatch'); }
+    if (lambdaCheck?.checked) { this.filterData('lambda'); }
+    if (!ec2Check?.checked && !rdsCheck?.checked && !s3Check?.checked && !cloudWatchCheck?.checked && !lambdaCheck?.checked) {
+      if (this.searchText === '') {
+        this.inventoryData = this.tempData;
+      } else {
+        this.inventoryData = this.searchData;
+      }
+    } else {
+      this.inventoryData = this.assignData;
+    }
+  }
+
+  private filterData(serviceType): void {
+    if (this.searchText === '') {
+      _.filter(this.tempData, (item) => { if (item.ServiceType === serviceType) { this.assignData.push(item); } });
+    } else {
+      _.filter(this.searchData, (item) => { if (item.ServiceType === serviceType) { this.assignData.push(item); } });
+    }
+  }
+
+  private searchFun(): void {
+    if (this.searchText !== '') {
+      this.searchData = this.tempData.filter((o) => { o.id.includes( this.searchText); });
+      this.inventoryData = this.searchData;
+    } else {
+      this.inventoryData = this.tempData;
+    }
+    this.checkedFun();
+  }
+  private getInventoryDetails(): void {
+    // API.Inventory.getInventory().then((response) => {
+    // this.inventoryData  = response;
+    this.inventoryData = [
+     { id: 'test1.regression@yandex.com|2test-staging', created: '2021-02-02T07:28:57.768542367Z', last_login: '2022-03-11T04:28:20.125396616Z', metadata: true, user_id: 'auth0|6013bee6fdd7b60069fec9fe', email: 'test1.regression@yandex.com', region: 'us-est-1', ServiceType: 'lambda', role_id: 'rol_hgAM7UsNbGZLE3pi' },
+     { id: 'test2.regression@yandex.com|2test-staging', created: '2021-02-02T07:28:57.768542367Z', last_login: '2022-03-11T04:28:20.125396616Z', metadata: true, user_id: 'auth0|6013bee6fdd7b60069fec9fe', email: 'test2.regression@yandex.com', region: 'us-west-2', ServiceType: 'ec2_intences', role_id: 'rol_hgAM7UsNbGZLE3pi' },
+     { id: 'test3.regression@yandex.com|2test-staging', created: '2021-02-02T07:28:57.768542367Z', last_login: '2022-03-11T04:28:20.125396616Z', metadata: true, user_id: 'auth0|6013bee6fdd7b60069fec9fe', email: 'test3.regression@yandex.com', region: 'us-west-2', ServiceType: 'ec2_intences', role_id: 'rol_hgAM7UsNbGZLE3pi' },
+     { id: 'test4.regression@yandex.com|2test-staging', created: '2021-02-02T07:28:57.768542367Z', last_login: '2022-03-11T04:28:20.125396616Z', metadata: true, user_id: 'auth0|6013bee6fdd7b60069fec9fe', email: 'test4.regression@yandex.com', region: 'us-west-2', ServiceType: 'rds', role_id: 'rol_hgAM7UsNbGZLE3pi' },
+     { id: 'test5.regression@yandex.com|2test-staging', created: '2021-02-02T07:28:57.768542367Z', last_login: '2022-03-11T04:28:20.125396616Z', metadata: true, user_id: 'auth0|6013bee6fdd7b60069fec9fe', email: 'test5.regression@yandex.com', region: 'us-west-2', ServiceType: 's3', role_id: 'rol_hgAM7UsNbGZLE3pi' },
+     { id: 'test6.regression@yandex.com|2test-staging', created: '2021-02-02T07:28:57.768542367Z', last_login: '2022-03-11T04:28:20.125396616Z', metadata: true, user_id: 'auth0|6013bee6fdd7b60069fec9fe', email: 'test6.regression@yandex.com', region: 'us-west-2', ServiceType: 's3', role_id: 'rol_hgAM7UsNbGZLE3pi' },
+     { id: 'mnc7.regression@yandex.com|2test-staging', created: '2021-02-02T07:28:57.768542367Z', last_login: '2022-03-11T04:28:20.125396616Z', metadata: true, user_id: 'auth0|6013bee6fdd7b60069fec9fe', email: 'test7.regression@yandex.com', region: 'us-west-2', ServiceType: 's3', role_id: 'rol_hgAM7UsNbGZLE3pi' },
+     { id: 'test8.regression@yandex.com|2test-staging', created: '2021-02-02T07:28:57.768542367Z', last_login: '2022-03-11T04:28:20.125396616Z', metadata: true, user_id: 'auth0|6013bee6fdd7b60069fec9fe', email: 'test8.regression@yandex.com', region: 'us-west-2', ServiceType: 'rds', role_id: 'rol_hgAM7UsNbGZLE3pi' },
+     { id: 'test9.regression@yandex.com|2test-staging', created: '2021-02-02T07:28:57.768542367Z', last_login: '2022-03-11T04:28:20.125396616Z', metadata: true, user_id: 'auth0|6013bee6fdd7b60069fec9fe', email: 'test9.regression@yandex.com', region: 'us-west-2', ServiceType: 'rds', role_id: 'rol_hgAM7UsNbGZLE3pi' },
+     { id: 'test10.regression@yandex.com|2test-staging', created: '2021-02-02T07:28:57.768542367Z', last_login: '2022-03-11T04:28:20.125396616Z', metadata: true, user_id: 'auth0|6013bee6fdd7b60069fec9fe', email: 'test10.regression@yandex.com', region: 'us-west-2', ServiceType: 'lambda', role_id: 'rol_hgAM7UsNbGZLE3pi' },
+     { id: 'mnc11.regression@yandex.com|-staging', created: '2021-02-02T07:28:57.768542367Z', last_login: '2022-03-11T04:28:20.125396616Z', metadata: true, user_id: 'auth0|6013bee6fdd7b60069fec9fe', email: 'test11.regression@yandex.com', region: 'us-west-2', ServiceType: 'lambda', role_id: 'rol_hgAM7UsNbGZLE3pi' },
+     { id: 'dvd12.regression@yandex.com|2-staging', created: '2021-02-02T07:28:57.768542367Z', last_login: '2022-03-11T04:28:20.125396616Z', metadata: true, user_id: 'auth0|6013bee6fdd7b60069fec9fe', email: 'dvd.regression@yandex.com', region: 'us-west-2', ServiceType: 'cloudWatch', role_id: 'rol_hgAM7UsNbGZLE3pi' },
+    ];
+    this.tempData = this.inventoryData;
+    // this.inventoryData .sort((a: any, b: any) => a.email.localeCompare(b.email));
+    // });
+    // });
+  }
+  // /* Lifecycle
+  // private created(): void {
+
+  // }
+  // }*/
+}
+
+</script>
+
+<style lang="scss" scoped>
+.item-texts div {
+  line-height: 1.325;
+  letter-spacing: 0.1rem;
+  font-size: 1rem;
+  padding-left: 1rem;
+  padding: 6px;
+  width: 10.89rem;
+  border: 0.1rem solid var(--c-gray-500);
+  font-size: 0.89rem;
+}
+
+.asset-untagged div {
+  background: var(--c-info-400);
+}
+</style>
